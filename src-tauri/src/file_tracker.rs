@@ -128,8 +128,8 @@ type StateHashMap = HashMap<PathBuf, FileMetadata>;
 
 #[derive(Serialize, Deserialize)]
 pub struct FileTracker {
-    root_target: PathBuf,
-    files_state: StateHashMap,
+    pub root_target: PathBuf,
+    pub files_state: StateHashMap,
 }
 
 impl FileTracker {
@@ -229,5 +229,9 @@ impl FileTracker {
         file.read_to_string(&mut json_data)?;
 
         Ok(serde_json::from_str::<FileTracker>(&json_data)?)
+    }
+
+    pub fn stop_monitoring_and_delete_state() -> Result<(), FileTrackerError> {
+        Ok(fs::remove_file("./state.json")?)
     }
 }

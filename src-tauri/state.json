@@ -1,0 +1,61 @@
+{
+  "root_target": "/home/gabriel/Documents/exampler",
+  "files_state": {
+    "/home/gabriel/Documents/exampler/file2.txt": {
+      "last_modified": {
+        "secs_since_epoch": 1753674981,
+        "nanos_since_epoch": 248061682
+      },
+      "size": 33,
+      "is_dir": false
+    },
+    "/home/gabriel/Documents/exampler/folder1/folder2/file4.txt": {
+      "last_modified": {
+        "secs_since_epoch": 1753108175,
+        "nanos_since_epoch": 267623213
+      },
+      "size": 34,
+      "is_dir": false
+    },
+    "/home/gabriel/Documents/exampler": {
+      "last_modified": {
+        "secs_since_epoch": 1753674981,
+        "nanos_since_epoch": 252061814
+      },
+      "size": 4096,
+      "is_dir": true
+    },
+    "/home/gabriel/Documents/exampler/folder1": {
+      "last_modified": {
+        "secs_since_epoch": 1753676032,
+        "nanos_since_epoch": 931772972
+      },
+      "size": 4096,
+      "is_dir": true
+    },
+    "/home/gabriel/Documents/exampler/folder1/folder2": {
+      "last_modified": {
+        "secs_since_epoch": 1752902183,
+        "nanos_since_epoch": 367018790
+      },
+      "size": 4096,
+      "is_dir": true
+    },
+    "/home/gabriel/Documents/exampler/folder1/file3.txt": {
+      "last_modified": {
+        "secs_since_epoch": 1753676032,
+        "nanos_since_epoch": 927772851
+      },
+      "size": 12,
+      "is_dir": false
+    },
+    "/home/gabriel/Documents/exampler/file1.txt": {
+      "last_modified": {
+        "secs_since_epoch": 1753507059,
+        "nanos_since_epoch": 474605449
+      },
+      "size": 15,
+      "is_dir": false
+    }
+  }
+}
