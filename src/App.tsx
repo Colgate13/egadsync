@@ -99,9 +99,9 @@ function App() {
 
   async function selectFolder(): Promise<void> {
     try {
-      const selected = await invoke<string | null>("select_folder");
-      if (selected) {
-        setInputFolder(selected);
+      const result = await invoke<string | null>("select_folder");
+      if (result) {
+        setInputFolder(result);
       }
     } catch (error) {
       setError(`Erro ao selecionar pasta: ${error}`);

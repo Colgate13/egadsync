@@ -27,6 +27,23 @@ fn get_monitoring_status() -> bool {
 }
 
 #[tauri::command]
+async fn select_folder(app: AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    use tokio::sync::oneshot;
+    
+    let (tx, rx) = oneshot::channel();
+    
+    app.dialog().file().pick_folder(move |folder_path| {
+        let _ = tx.send(folder_path.map(|p| p.to_string()));
+    });
+    
+    match rx.await {
+        Ok(result) => Ok(result),
+        Err(_) => Ok(None),
+    }
+}
+
+#[tauri::command]
 fn setup(app: AppHandle, target_folder: &str) {
     let target_folder = target_folder.to_string();
     let config = Config::default();
@@ -50,6 +67,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if FileTracker::is_monitoring_active() {
                 start_sync_loop(app.handle().clone());
@@ -60,7 +78,8 @@ pub fn run() {
             setup,
             get_save_state,
             get_monitoring_status,
-            stop_monitoring
+            stop_monitoring,
+            select_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
