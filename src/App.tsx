@@ -349,9 +349,6 @@ function App() {
                         <span className="change-timestamp">
                           {change.timestamp}
                         </span>
-                        <span className="change-folder">
-                          {change.folder}
-                        </span>
                       </div>
                       <div className="change-details">
                         {change.changes.map((c, i) => (

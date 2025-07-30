@@ -1,168 +1,74 @@
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    error::Error,
-    fmt::{self},
-    fs::{self, File},
-    io::{self, Read, Write},
-    path::PathBuf,
-    time::SystemTime,
-};
-use tokio::task::{self, JoinError};
+use crate::config::Config;
+use crate::error::FileTrackerError;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::path::PathBuf;
+use std::time::SystemTime;
 use walkdir::WalkDir;
 
-#[derive(Debug)]
-pub enum FileTrackerError {
-    IsNotDir,
-    IoError(io::Error),
-    JoinErrorTask(JoinError),
-    WaldirError(walkdir::Error),
-    SerdeJson(serde_json::Error),
-}
-
+/// Represents a change in a file or directory.
 #[derive(Debug, Serialize, Clone)]
 pub enum FileChange {
-    Created(PathBuf),
-    Modified(PathBuf),
+    Created(PathBuf, FileMetadata),
+    Modified(PathBuf, FileMetadata),
     Deleted(PathBuf),
 }
 
-impl Error for FileTrackerError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl std::fmt::Display for FileChange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FileTrackerError::IsNotDir => None,
-            FileTrackerError::IoError(err) => Some(err),
-            FileTrackerError::WaldirError(err) => Some(err),
-            FileTrackerError::JoinErrorTask(err) => Some(err),
-            FileTrackerError::SerdeJson(err) => Some(err),
+            FileChange::Created(path, _) => write!(f, "Novo: {}", path.display()),
+            FileChange::Modified(path, _) => write!(f, "Modificado: {}", path.display()),
+            FileChange::Deleted(path) => write!(f, "Deletado: {}", path.display()),
         }
     }
 }
 
-impl fmt::Display for FileTrackerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FileTrackerError::IsNotDir => {
-                write!(f, "A pasta inicial não é um diretorio!")
-            }
-            FileTrackerError::IoError(err) => {
-                write!(f, "Erro de I/O: {}", err)
-            }
-            FileTrackerError::WaldirError(err) => {
-                write!(f, "Error no scanner de arquivos: {}", err)
-            }
-            FileTrackerError::JoinErrorTask(err) => {
-                write!(f, "Error para executar tarefas em background: {}", err)
-            }
-            FileTrackerError::SerdeJson(err) => {
-                write!(f, "Error para executar tarefas em background: {}", err)
-            }
-        }
-    }
-}
-
-impl Serialize for FileTrackerError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer
-    {
-        let mut state = serializer.serialize_struct("FileTrackerError", 2)?;
-        match self {
-            FileTrackerError::IoError(err) => {
-                state.serialize_field("type", "IsNotDir")?;
-                state.serialize_field("details", &format!("{}", err))?;
-            },
-            _ => {
-                state.serialize_field("type", "InternalError")?;
-                state.serialize_field("details", &format!("Internal Error"))?;
-            }
-        };
-        
-        state.end()
-    }
-}
-
-impl From<io::Error> for FileTrackerError {
-    fn from(value: io::Error) -> Self {
-        FileTrackerError::IoError(value)
-    }
-}
-
-impl From<walkdir::Error> for FileTrackerError {
-    fn from(value: walkdir::Error) -> Self {
-        FileTrackerError::WaldirError(value)
-    }
-}
-
-impl From<JoinError> for FileTrackerError {
-    fn from(value: JoinError) -> Self {
-        FileTrackerError::JoinErrorTask(value)
-    }
-}
-
-impl From<serde_json::Error> for FileTrackerError {
-    fn from(value: serde_json::Error) -> Self {
-        FileTrackerError::SerdeJson(value)
-    }
-}
-
-
-impl fmt::Display for FileChange {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FileChange::Created(path) => write!(f, "Created: {}", path.display()),
-            FileChange::Modified(path) => write!(f, "Modified: {}", path.display()),
-            FileChange::Deleted(path) => write!(f, "Deleted: {}", path.display()),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+/// Metadata for a file or directory.
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileMetadata {
     last_modified: SystemTime,
     size: u64,
     is_dir: bool,
 }
 
-type StateHashMap = HashMap<PathBuf, FileMetadata>;
-
+/// Tracks files in a directory and their metadata.
 #[derive(Serialize, Deserialize)]
 pub struct FileTracker {
     pub root_target: PathBuf,
-    pub files_state: StateHashMap,
+    pub files_state: HashMap<PathBuf, FileMetadata>,
 }
 
 impl FileTracker {
-    pub fn new<T: AsRef<std::path::Path>>(root_target: T) -> Result<Self, FileTrackerError> {
-        println!("Initialize new state");
+    /// Creates a new FileTracker for the specified directory.
+    pub fn new<T: AsRef<std::path::Path>>(root_target: T, config: &Config) -> Result<Self, FileTrackerError> {
+        log::info!("Initializing FileTracker for directory: {}", root_target.as_ref().display());
         let root_target = root_target.as_ref();
-        let files_state = FileTracker::scan_dir(root_target)?;
+        let files_state = Self::scan_dir(root_target)?;
         let file_tracker = FileTracker {
             files_state,
             root_target: root_target.to_path_buf(),
         };
-        file_tracker.save()?;
-
+        file_tracker.save(config)?;
         Ok(file_tracker)
     }
 
-    pub fn scan_dir<T: AsRef<std::path::Path>>(
-        target: T,
-    ) -> Result<StateHashMap, FileTrackerError> {
+    /// Scans a directory and returns its file metadata.
+    pub fn scan_dir<T: AsRef<std::path::Path>>(target: T) -> Result<HashMap<PathBuf, FileMetadata>, FileTrackerError> {
         let target = target.as_ref();
-        let target_metadata = fs::metadata(&target)?;
+        let target_metadata = fs::metadata(target)?;
 
+        // Check dir metadata
         if !target_metadata.is_dir() {
-            return Err(FileTrackerError::IsNotDir);
+            return Err(FileTrackerError::NotADirectory);
         }
 
-        let setup_walkdir = WalkDir::new(target).follow_links(false);
-
-        let mut current_state: StateHashMap = HashMap::new();
-        for entry in setup_walkdir {
+        let mut current_state = HashMap::new();
+        for entry in WalkDir::new(target).follow_links(false) {
             let entry = entry?;
             let metadata = entry.metadata()?;
-
             current_state.insert(
                 entry.into_path(),
                 FileMetadata {
@@ -172,66 +78,84 @@ impl FileTracker {
                 },
             );
         }
-
         Ok(current_state)
     }
 
+    /// Computes differences between the current and previous file states.
     pub async fn diff(&mut self) -> Result<Vec<FileChange>, FileTrackerError> {
-        let new_state = task::spawn_blocking({
+        let new_state = tokio::task::spawn_blocking({
             let target = self.root_target.clone();
             move || Self::scan_dir(target)
         })
         .await??;
-        let mut changes: Vec<FileChange> = Vec::new();
 
-        // Created or Modified files.
+        let mut changes = Vec::new();
         for (path, new_metadata) in &new_state {
             match self.files_state.get(path) {
                 Some(old_metadata) => {
-                    // Check metadata to detect changes
-                    if old_metadata.last_modified != new_metadata.last_modified
-                        || old_metadata.size != new_metadata.size
-                    {
-                        changes.push(FileChange::Modified(path.to_path_buf()));
+                    if old_metadata.last_modified != new_metadata.last_modified || old_metadata.size != new_metadata.size {
+                        changes.push(FileChange::Modified(path.to_path_buf(), new_metadata.clone()));
                     }
                 }
-                None => {
-                    // New file
-                    changes.push(FileChange::Created(path.to_path_buf()));
-                }
+                None => changes.push(FileChange::Created(path.to_path_buf(), new_metadata.clone())),
             }
         }
-
-        // Deleted file
         for path in self.files_state.keys() {
             if !new_state.contains_key(path) {
                 changes.push(FileChange::Deleted(path.to_path_buf()));
             }
         }
-
-        // Update file state to new state.
         self.files_state = new_state;
 
         Ok(changes)
     }
 
-    pub fn save(&self) -> Result<(), FileTrackerError> {
-        let mut file = File::create("./state.json")?;
-        let json = serde_json::to_string_pretty(&self)?;
-        file.write(json.as_bytes())?;
+    pub fn get_only_file_changes(all_changes: Vec<FileChange>) -> Vec<FileChange> {
+        all_changes
+            .into_iter()
+            .filter_map(|element | {
+                match &element {
+                    FileChange::Created(_, metadata ) | 
+                    FileChange::Modified(_, metadata ) => {
+                        if !metadata.is_dir {
+                            return Some(element)
+                        }
 
+                        None
+                    },
+                    FileChange::Deleted(_) => {
+                        Some(element)
+                    }
+                }
+            }).collect::<Vec<FileChange>>()
+    }
+
+    /// Saves the current state to the configured state file.
+    pub fn save(&self, config: &Config) -> Result<(), FileTrackerError> {
+        let mut file = File::create(&config.state_file_path)?;
+        let json = serde_json::to_string_pretty(self)?;
+        file.write(json.as_bytes())?;
+        log::info!("Saved state to {}", config.state_file_path);
         Ok(())
     }
 
-    pub fn get() -> Result<FileTracker, FileTrackerError> {
-        let mut file = File::open("./state.json")?;
+    /// Loads the FileTracker state from the configured state file.
+    pub fn get(config: &Config) -> Result<Self, FileTrackerError> {
+        let mut file = File::open(&config.state_file_path)?;
         let mut json_data = String::new();
         file.read_to_string(&mut json_data)?;
-
-        Ok(serde_json::from_str::<FileTracker>(&json_data)?)
+        Ok(serde_json::from_str(&json_data)?)
     }
 
+    /// Stops monitoring and deletes the state file.
     pub fn stop_monitoring_and_delete_state() -> Result<(), FileTrackerError> {
-        Ok(fs::remove_file("./state.json")?)
+        fs::remove_file("./state.json")?;
+        log::info!("Stopped monitoring and deleted state file");
+        Ok(())
+    }
+
+    /// Checks if monitoring is active by checking the state file's existence.
+    pub fn is_monitoring_active() -> bool {
+        std::path::Path::new("./state.json").exists()
     }
 }
