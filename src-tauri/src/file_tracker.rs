@@ -148,14 +148,14 @@ impl FileTracker {
     }
 
     /// Stops monitoring and deletes the state file.
-    pub fn stop_monitoring_and_delete_state() -> Result<(), FileTrackerError> {
-        fs::remove_file("./state.json")?;
-        log::info!("Stopped monitoring and deleted state file");
+    pub fn stop_monitoring_and_delete_state(config: &Config) -> Result<(), FileTrackerError> {
+        fs::remove_file(&config.state_file_path)?;
+        log::info!("Stopped monitoring and deleted state file at {}", config.state_file_path);
         Ok(())
     }
 
     /// Checks if monitoring is active by checking the state file's existence.
-    pub fn is_monitoring_active() -> bool {
-        std::path::Path::new("./state.json").exists()
+    pub fn is_monitoring_active(config: &Config) -> bool {
+        std::path::Path::new(&config.state_file_path).exists()
     }
 }

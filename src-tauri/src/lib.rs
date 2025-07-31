@@ -13,7 +13,8 @@ use sync::{start_sync_loop};
 
 #[tauri::command]
 fn stop_monitoring() -> Result<(), FileTrackerError> {
-    FileTracker::stop_monitoring_and_delete_state()
+    let config = Config::default();
+    FileTracker::stop_monitoring_and_delete_state(&config)
 }
 
 #[tauri::command]
@@ -23,7 +24,8 @@ fn get_save_state() -> Result<FileTracker, FileTrackerError> {
 
 #[tauri::command]
 fn get_monitoring_status() -> bool {
-    FileTracker::is_monitoring_active()
+    let config = Config::default();
+    FileTracker::is_monitoring_active(&config)
 }
 
 #[tauri::command]
@@ -69,7 +71,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            if FileTracker::is_monitoring_active() {
+            let config = Config::default();
+            if FileTracker::is_monitoring_active(&config) {
                 start_sync_loop(app.handle().clone());
             }
             Ok(())
