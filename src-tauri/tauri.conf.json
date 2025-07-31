@@ -36,15 +36,18 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": null,
       "wix": {
-        "language": "en-US",
+        "language": "pt-BR",
         "template": null,
         "fragmentPaths": [],
         "componentGroupRefs": [],
         "componentRefs": [],
         "featureGroupRefs": [],
         "featureRefs": [],
-        "mergeRefs": []
-      }
+        "mergeRefs": [],
+        "dialogImagePath": null,
+        "bannerPath": null
+      },
+      "nsis": null
     }
   }
 }

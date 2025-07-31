@@ -9,9 +9,13 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build",
-    "tauri:build:msi": "tauri build --target x86_64-pc-windows-msvc",
+    "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc",
+    "tauri:build:msi": "tauri build --target x86_64-pc-windows-msvc --bundles msi",
+    "tauri:build:nsis": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
+    "tauri:build:portable": "tauri build --target x86_64-pc-windows-msvc --bundles app",
     "tauri:build:linux": "tauri build",
-    "tauri:dev": "tauri dev"
+    "tauri:dev": "tauri dev",
+    "build:installer": "npm run build && npm run tauri:build:nsis"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
