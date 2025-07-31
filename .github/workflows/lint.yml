@@ -1,0 +1,64 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-frontend:
+    name: Lint Frontend (TypeScript/React)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run Prettier check
+        run: npx prettier --check . --ignore-path .gitignore || echo "Prettier check failed - consider running 'npm run format'"
+
+  lint-backend:
+    name: Lint Backend (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Run rustfmt check
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check for unused dependencies
+        run: |
+          cargo install cargo-machete --locked || true
+          cargo machete --with-metadata || echo "cargo-machete not available or found unused deps"
