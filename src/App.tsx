@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Folder, Play, Square, Trash2, RefreshCw, Settings, ChevronDown, ChevronUp, FolderOpen } from "lucide-react";
+import { Folder, Play, Square, Trash2, RefreshCw, Settings, ChevronDown, ChevronUp, FolderOpen, EyeOff, Power, RotateCcw } from "lucide-react";
 import "./App.css";
 
 interface FileDiffEvent {
@@ -24,10 +24,14 @@ function App() {
   const [error, setError] = useState<string>("");
   const [showChangelog, setShowChangelog] = useState<boolean>(true);
   const [isConfiguring, setIsConfiguring] = useState<boolean>(false);
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean>(false);
+  const [trayStatus, setTrayStatus] = useState<boolean>(true);
 
   useEffect(() => {
     checkMonitoringStatus();
     loadSavedState();
+    checkAutostartStatus();
+    checkTrayStatus();
 
     const unlistenSyncStarted = listen<string>("sync_started", (event) => {
       setSyncStatus("Monitorando");
@@ -171,6 +175,55 @@ function App() {
     return <div className={statusClass}></div>;
   }
 
+  async function checkAutostartStatus(): Promise<void> {
+    try {
+      const status = await invoke<boolean>("get_autostart_status");
+      setAutostartEnabled(status);
+    } catch (error) {
+      console.error("Erro ao verificar autostart:", error);
+    }
+  }
+
+  async function toggleAutostart(): Promise<void> {
+    try {
+      const newStatus = await invoke<boolean>("toggle_autostart");
+      setAutostartEnabled(newStatus);
+    } catch (error) {
+      setError(`Erro ao alterar autostart: ${error}`);
+      console.error("Erro ao alterar autostart:", error);
+    }
+  }
+
+  async function hideToTray(): Promise<void> {
+    try {
+      await invoke("hide_window");
+    } catch (error) {
+      console.error("Erro ao ocultar janela:", error);
+    }
+  }
+
+  async function checkTrayStatus(): Promise<void> {
+    try {
+      const status = await invoke<boolean>("check_tray_status");
+      setTrayStatus(status);
+    } catch (error) {
+      console.error("Erro ao verificar status do tray:", error);
+      setTrayStatus(false);
+    }
+  }
+
+  async function recreateTray(): Promise<void> {
+    try {
+      await invoke("recreate_tray");
+      setTrayStatus(true);
+      setError(""); // Limpa erro se houver
+    } catch (error) {
+      setError(`Erro ao recriar tray: ${error}`);
+      console.error("Erro ao recriar tray:", error);
+      setTrayStatus(false);
+    }
+  }
+
   const showConfiguration = isConfiguring || !monitoredFolder;
 
   return (
@@ -185,6 +238,35 @@ function App() {
                 <h1 className="app-title">EgadSync</h1>
                 <p className="app-subtitle">Monitor de arquivos em tempo real</p>
               </div>
+            </div>
+            
+            <div className="header-controls">
+              <button
+                onClick={toggleAutostart}
+                className={`control-btn ${autostartEnabled ? 'active' : ''}`}
+                title={autostartEnabled ? "Desativar inicialização automática" : "Ativar inicialização automática"}
+              >
+                <Power className="icon" />
+                {autostartEnabled ? 'Auto-start ON' : 'Auto-start OFF'}
+              </button>
+              
+              <button
+                onClick={recreateTray}
+                className={`control-btn ${!trayStatus ? 'warning' : ''}`}
+                title={trayStatus ? "Recriar system tray" : "System tray com problema - clique para recriar"}
+              >
+                <RotateCcw className="icon" />
+                {trayStatus ? 'Tray OK' : 'Recriar Tray'}
+              </button>
+              
+              <button
+                onClick={hideToTray}
+                className="control-btn"
+                title="Minimizar para bandeja do sistema"
+              >
+                <EyeOff className="icon" />
+                Ocultar
+              </button>
             </div>
           </div>
         </header>
