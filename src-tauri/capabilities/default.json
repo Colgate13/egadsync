@@ -5,6 +5,13 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-skip-taskbar",
+    "core:tray:default",
+    "opener:default",
+    "dialog:default",
+    "autostart:default"
   ]
 }
