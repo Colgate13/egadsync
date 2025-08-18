@@ -46,51 +46,6 @@ impl TrayMenuId {
     }
 }
 
-fn create_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
-    let open_item = MenuItem::with_id(
-        app,
-        TrayMenuId::Open.as_str(),
-        TrayMenuId::Open.label(),
-        true,
-        None::<&str>,
-    )?;
-    let quit_item = MenuItem::with_id(
-        app,
-        TrayMenuId::Quit.as_str(),
-        TrayMenuId::Quit.label(),
-        true,
-        None::<&str>,
-    )?;
-    let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
-    Ok(menu)
-}
-
-fn handle_tray_event(app: &AppHandle, event: TrayIconEvent) {
-    match event {
-        TrayIconEvent::Click { .. } => {
-            handle_menu_action(app, TrayMenuId::Open);
-        }
-        TrayIconEvent::DoubleClick { .. } => {
-            handle_menu_action(app, TrayMenuId::Open);
-        }
-        _ => {}
-    }
-}
-
-fn handle_menu_action(app: &AppHandle, menu_id: TrayMenuId) {
-    match menu_id {
-        TrayMenuId::Open => {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }
-        TrayMenuId::Quit => {
-            app.exit(0);
-        }
-    }
-}
-
 #[tauri::command]
 fn stop_monitoring() -> Result<(), FileTrackerError> {
     let config = Config::default();
@@ -141,6 +96,51 @@ fn setup(app: AppHandle, target_folder: &str) {
             }
         }
     });
+}
+
+fn create_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
+    let open_item = MenuItem::with_id(
+        app,
+        TrayMenuId::Open.as_str(),
+        TrayMenuId::Open.label(),
+        true,
+        None::<&str>,
+    )?;
+    let quit_item = MenuItem::with_id(
+        app,
+        TrayMenuId::Quit.as_str(),
+        TrayMenuId::Quit.label(),
+        true,
+        None::<&str>,
+    )?;
+    let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
+    Ok(menu)
+}
+
+fn handle_tray_event(app: &AppHandle, event: TrayIconEvent) {
+    match event {
+        TrayIconEvent::Click { .. } => {
+            handle_menu_action(app, TrayMenuId::Open);
+        }
+        TrayIconEvent::DoubleClick { .. } => {
+            handle_menu_action(app, TrayMenuId::Open);
+        }
+        _ => {}
+    }
+}
+
+fn handle_menu_action(app: &AppHandle, menu_id: TrayMenuId) {
+    match menu_id {
+        TrayMenuId::Open => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        TrayMenuId::Quit => {
+            app.exit(0);
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
